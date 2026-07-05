@@ -1,7 +1,11 @@
 <script>
 	import { onDestroy } from 'svelte';
+	import { base } from '$app/paths';
 
-	const MODEL_URL = '/tm-my-image-model/';
+	// Put your Teachable Machine export folder in SvelteKit here:
+	// /static/tm-my-image-model/{model.json,metadata.json,weights.bin}
+	// `base` makes this work both locally ("") and on GitHub Pages ("/<repo>").
+	const MODEL_URL = `${base}/tm-my-image-model/`;
 
 	let tmImage;
 	let model;
@@ -9,6 +13,7 @@
 	let isLoadingModel = false;
 	let status = 'Load the model, then upload a photo.';
 	let predictions = [];
+
 	let imageSrc = '';
 	let imageEl;
 
@@ -40,9 +45,10 @@
 		const file = e.currentTarget.files?.[0];
 		if (!file) return;
 
+		// Clean up old object URL
 		if (imageSrc) URL.revokeObjectURL(imageSrc);
-		imageSrc = URL.createObjectURL(file);
 
+		imageSrc = URL.createObjectURL(file);
 		status = 'Image selected. Predicting…';
 		predictions = [];
 	}
@@ -63,13 +69,17 @@
 		}
 	}
 
+	// ----- Derived values for UI + plant behavior -----
 	$: top = predictions[0] ?? { className: '', probability: 0 };
-	$: topPct = Math.round((top.probability || 0) * 100);
+	$: confidence = top.probability || 0;
+	$: topPct = Math.round(confidence * 100);
 
-	// Use probability to drive a simple “growth” value from 0..1
-	$: growth = Math.min(1, Math.max(0, (top.probability || 0)));
-	$: isDuke = top.className.toLowerCase().includes('duke');
-	$: isUNC = top.className.toLowerCase().includes('unc');
+	$: isDuke = top.className?.toLowerCase().includes('duke');
+	$: isUNC = top.className?.toLowerCase().includes('unc');
+
+	// growth/decay are 0..1 and driven by probability
+	$: growth = isDuke ? confidence : 0;
+	$: decay = isUNC ? confidence : 0;
 
 	onDestroy(() => {
 		if (imageSrc) URL.revokeObjectURL(imageSrc);
@@ -78,9 +88,9 @@
 
 <main class="page">
 	<header class="header">
-		<div>
+		<div class="titleBlock">
 			<h1>Rivalry Bloom</h1>
-			<p class="sub">Upload a photo. The ecosystem reacts.</p>
+			<p class="sub">Upload a photo. Duke signals → growth. UNC signals → decay.</p>
 		</div>
 
 		<div class="actions">
@@ -94,7 +104,7 @@
 				{/if}
 			</button>
 
-			<label class="file {model ? '' : 'disabled'}">
+			<label class="file {model ? '' : 'disabled'}" aria-disabled={!model}>
 				<input type="file" accept="image/*" on:change={onFileChange} disabled={!model} />
 				<span>Upload image</span>
 			</label>
@@ -122,13 +132,13 @@
 					<div class="emptyIcon">📷</div>
 					<div class="emptyText">
 						<strong>No image yet</strong>
-						<div class="muted">Upload a Duke or UNC photo to test your model.</div>
+						<div class="muted">Load the model, then upload a Duke or UNC image.</div>
 					</div>
 				</div>
 			{/if}
 		</div>
 
-		<!-- RIGHT: Results + “biomimicry” reaction -->
+		<!-- RIGHT: Results + biomimicry reaction -->
 		<div class="card">
 			<div class="cardTop">
 				<h2>Classification</h2>
@@ -164,39 +174,101 @@
 
 			<h2>Ecosystem response</h2>
 			<p class="muted">
-				A simple biomimicry metaphor: team signals act like environmental cues—growth vs. stress.
+				A biomimicry metaphor: visual identity signals act like environmental cues—supporting growth or
+				inducing stress.
 			</p>
 
-			<!-- plant scene -->
-			<div class="scene">
-				<div class="sun {isDuke ? 'on' : ''}"></div>
+			<!-- Plant scene: bud -> bloom (Duke), droop + fall + cracks (UNC) -->
+			<div class="scene {isDuke ? 'mode-grow' : isUNC ? 'mode-decay' : 'mode-idle'}">
+				<div class="ground"></div>
 
-				<!-- stem grows with probability -->
-				<div class="stem" style="transform: scaleY({0.2 + growth * 0.9});"></div>
+				<!-- Stem grows + droops on decay -->
+				<div
+					class="stem"
+					style="
+						height: {50 + growth * 160 - decay * 40}px;
+						transform: translateX(-50%) rotate({decay * 18}deg);
+					"
+				></div>
 
-				<!-- bloom vs droop -->
-				<div class="bloom {isUNC ? 'droop' : ''}" style="transform: scale({0.7 + growth * 0.5});">
+				<!-- Leaves -->
+				<div
+					class="leaf leaf-left"
+					style="
+						opacity: {Math.min(1, growth * 1.2 + 0.15)};
+						transform: rotate(-35deg) scale({0.6 + growth * 0.8 - decay * 0.3});
+						filter: saturate({1 - decay * 0.8}) brightness({1 - decay * 0.25});
+					"
+				></div>
+
+				<div
+					class="leaf leaf-right"
+					style="
+						opacity: {Math.min(1, growth * 1.2 + 0.15)};
+						transform: rotate(35deg) scaleX(-1) scale({0.6 + growth * 0.8 - decay * 0.3});
+						filter: saturate({1 - decay * 0.8}) brightness({1 - decay * 0.25});
+					"
+				></div>
+
+				<!-- Flower -->
+				<div
+					class="flower"
+					style="
+						transform:
+							translateX(-50%)
+							translateY({decay * 12}px)
+							scale({0.45 + growth * 0.95 - decay * 0.35})
+							rotate({decay * 25}deg);
+						filter: saturate({1 - decay}) brightness({1 - decay * 0.25});
+						opacity: {0.25 + growth * 0.9};
+					"
+				>
 					<div class="petal p1"></div>
 					<div class="petal p2"></div>
 					<div class="petal p3"></div>
 					<div class="petal p4"></div>
+					<div class="petal p5"></div>
+					<div class="petal p6"></div>
 					<div class="center"></div>
+
+					{#if decay > 0.45}
+						<div class="fall fall1"></div>
+						<div class="fall fall2"></div>
+						<div class="fall fall3"></div>
+					{/if}
 				</div>
 
-				<div class="ground"></div>
+				{#if decay > 0.35}
+					<div class="crack c1"></div>
+					<div class="crack c2"></div>
+					<div class="crack c3"></div>
+				{/if}
+
+				<!-- Optional explicit label (helps readability) -->
+				<div class="sceneLabel">
+					{#if isDuke}
+						<span class="label good">Thriving</span>
+					{:else if isUNC}
+						<span class="label bad">Decayed :(</span>
+					{:else}
+						<span class="label neutral">Neutral</span>
+					{/if}
+				</div>
+			</div>
+
+			<div class="tip">
+				<strong>Tip:</strong> If your model confuses light-blue photos with UNC, consider adding an “Other” class.
 			</div>
 		</div>
 	</section>
 
 	<footer class="footer">
-		<div class="muted">
-			Tip: train with consistent logos/colors and a few “Other” images to reduce misfires.
-		</div>
+		<div class="muted">Made with Teachable Machine + Svelte.</div>
 	</footer>
 </main>
 
 <style>
-	/* Layout */
+	/* Page */
 	.page {
 		min-height: 100vh;
 		padding: 28px;
@@ -215,6 +287,12 @@
 		margin-bottom: 18px;
 	}
 
+	.titleBlock {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
 	h1 {
 		margin: 0;
 		font-size: 34px;
@@ -222,7 +300,7 @@
 	}
 
 	.sub {
-		margin: 6px 0 0;
+		margin: 0;
 		color: rgba(234, 240, 255, 0.75);
 	}
 
@@ -239,6 +317,10 @@
 	}
 
 	@media (max-width: 900px) {
+		.header {
+			align-items: flex-start;
+			flex-direction: column;
+		}
 		.grid {
 			grid-template-columns: 1fr;
 		}
@@ -394,7 +476,7 @@
 		height: 10px;
 		border-radius: 999px;
 		background: rgba(255, 255, 255, 0.08);
-		border: 1px solid rgba(255, 255, 255, 0.10);
+		border: 1px solid rgba(255, 255, 255, 0.1);
 		overflow: hidden;
 	}
 
@@ -405,35 +487,25 @@
 		transition: width 250ms ease;
 	}
 
-	/* “Plant” scene */
+	/* ---- Plant scene: obvious growth vs decay ---- */
 	.scene {
 		position: relative;
-		height: 240px;
+		height: 280px;
 		margin-top: 10px;
 		border-radius: 16px;
 		border: 1px solid rgba(255, 255, 255, 0.12);
-		background: radial-gradient(500px 200px at 50% 0%, rgba(255, 255, 255, 0.10), transparent 55%),
-			linear-gradient(180deg, rgba(30, 60, 120, 0.25), rgba(0, 0, 0, 0.2));
 		overflow: hidden;
+		background: linear-gradient(180deg, rgba(40, 70, 140, 0.25), rgba(0, 0, 0, 0.18));
 	}
 
-	.sun {
-		position: absolute;
-		top: 18px;
-		right: 18px;
-		width: 36px;
-		height: 36px;
-		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.18);
-		filter: blur(0.2px);
-		transform: scale(0.95);
-		transition: transform 300ms ease, background 300ms ease;
+	.scene.mode-grow {
+		background: radial-gradient(700px 260px at 50% 0%, rgba(120, 255, 190, 0.18), transparent 60%),
+			linear-gradient(180deg, rgba(40, 70, 140, 0.25), rgba(0, 0, 0, 0.18));
 	}
 
-	.sun.on {
-		background: rgba(255, 255, 255, 0.45);
-		transform: scale(1.05);
-		box-shadow: 0 0 24px rgba(255, 255, 255, 0.22);
+	.scene.mode-decay {
+		background: radial-gradient(700px 260px at 50% 0%, rgba(255, 160, 120, 0.14), transparent 60%),
+			linear-gradient(180deg, rgba(50, 40, 40, 0.35), rgba(0, 0, 0, 0.22));
 	}
 
 	.ground {
@@ -441,72 +513,180 @@
 		bottom: 0;
 		left: 0;
 		right: 0;
-		height: 54px;
-		background: rgba(10, 18, 30, 0.65);
-		border-top: 1px solid rgba(255, 255, 255, 0.10);
+		height: 70px;
+		background: rgba(14, 20, 30, 0.75);
+		border-top: 1px solid rgba(255, 255, 255, 0.1);
 	}
 
 	.stem {
 		position: absolute;
-		bottom: 54px;
+		bottom: 70px;
 		left: 50%;
-		width: 10px;
-		height: 130px;
+		width: 12px;
 		transform-origin: bottom;
-		transform: scaleY(0.2);
+		transform: translateX(-50%);
 		border-radius: 999px;
-		background: rgba(120, 255, 170, 0.65);
-		filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
-		transition: transform 350ms ease;
+		background: linear-gradient(to top, rgba(60, 220, 150, 0.95), rgba(25, 140, 85, 0.95));
+		filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.35));
+		transition: height 520ms ease, transform 520ms ease, background 520ms ease;
 	}
 
-	.bloom {
+	.leaf {
 		position: absolute;
-		bottom: 54px;
-		left: 50%;
-		width: 96px;
-		height: 96px;
-		transform-origin: center;
-		transform: translateX(-50%) scale(0.9);
-		transition: transform 350ms ease;
+		width: 70px;
+		height: 34px;
+		bottom: 155px;
+		border-radius: 80px 80px 80px 0;
+		background: rgba(70, 230, 160, 0.9);
+		filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.25));
+		transition: transform 520ms ease, opacity 520ms ease, filter 520ms ease;
+		opacity: 0.15;
 	}
 
-	/* droop on UNC */
-	.bloom.droop {
-		transform: translateX(-50%) rotate(16deg) scale(0.85);
-		filter: saturate(0.5);
-		opacity: 0.85;
+	.leaf-left {
+		left: calc(50% - 58px);
+		transform-origin: right center;
+	}
+
+	.leaf-right {
+		left: calc(50% + 2px);
+		transform-origin: left center;
+	}
+
+	.flower {
+		position: absolute;
+		left: 50%;
+		bottom: 185px;
+		width: 110px;
+		height: 110px;
+		transform-origin: center;
+		transition: transform 520ms ease, opacity 520ms ease, filter 520ms ease;
 	}
 
 	.petal {
 		position: absolute;
 		left: 50%;
 		top: 50%;
-		width: 44px;
-		height: 22px;
+		width: 54px;
+		height: 26px;
 		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.55);
 		transform-origin: left center;
+		background: radial-gradient(circle at 30% 50%, rgba(255, 255, 255, 0.95), rgba(236, 170, 255, 0.85) 70%);
+		filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.25));
 	}
 
 	.p1 { transform: translate(-10%, -50%) rotate(0deg); }
-	.p2 { transform: translate(-10%, -50%) rotate(90deg); }
-	.p3 { transform: translate(-10%, -50%) rotate(180deg); }
-	.p4 { transform: translate(-10%, -50%) rotate(270deg); }
+	.p2 { transform: translate(-10%, -50%) rotate(60deg); }
+	.p3 { transform: translate(-10%, -50%) rotate(120deg); }
+	.p4 { transform: translate(-10%, -50%) rotate(180deg); }
+	.p5 { transform: translate(-10%, -50%) rotate(240deg); }
+	.p6 { transform: translate(-10%, -50%) rotate(300deg); }
 
 	.center {
 		position: absolute;
 		left: 50%;
 		top: 50%;
-		width: 20px;
-		height: 20px;
-		border-radius: 999px;
+		width: 26px;
+		height: 26px;
 		transform: translate(-50%, -50%);
-		background: rgba(255, 255, 255, 0.75);
+		border-radius: 999px;
+		background: radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.95), rgba(255, 220, 120, 0.95));
+		filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.25));
+	}
+
+	.fall {
+		position: absolute;
+		left: 50%;
+		top: 58%;
+		width: 18px;
+		height: 10px;
+		border-radius: 999px;
+		background: rgba(236, 170, 255, 0.8);
+		filter: grayscale(0.6) brightness(0.75);
+		opacity: 0.9;
+		animation: fall 900ms ease-in forwards;
+	}
+
+	.fall1 { margin-left: -24px; transform: rotate(-18deg); animation-delay: 0ms; }
+	.fall2 { margin-left: 4px; transform: rotate(10deg); animation-delay: 120ms; }
+	.fall3 { margin-left: 22px; transform: rotate(22deg); animation-delay: 240ms; }
+
+	@keyframes fall {
+		0% { transform: translateY(0) rotate(0deg); opacity: 0.95; }
+		100% { transform: translateY(72px) rotate(55deg); opacity: 0; }
+	}
+
+	.crack {
+		position: absolute;
+		bottom: 14px;
+		height: 2px;
+		background: rgba(255, 190, 160, 0.55);
+		border-radius: 999px;
+		filter: blur(0.1px);
+		opacity: 0.8;
+	}
+
+	.c1 { left: 20%; width: 70px; transform: rotate(-12deg); }
+	.c2 { left: 45%; width: 110px; transform: rotate(8deg); }
+	.c3 { left: 66%; width: 80px; transform: rotate(-6deg); }
+
+	.scene.mode-decay .stem {
+		background: linear-gradient(to top, rgba(150, 120, 90, 0.95), rgba(90, 70, 55, 0.95));
+	}
+
+	.scene.mode-decay .leaf {
+		background: rgba(170, 140, 95, 0.85);
+	}
+
+	.scene.mode-decay .petal {
+		filter: grayscale(0.7) brightness(0.7);
+	}
+
+	.sceneLabel {
+		position: absolute;
+		top: 12px;
+		left: 12px;
+	}
+
+	.label {
+		display: inline-block;
+		font-size: 12px;
+		padding: 6px 10px;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		background: rgba(255, 255, 255, 0.06);
+		color: rgba(234, 240, 255, 0.9);
+	}
+
+	.label.good {
+		border-color: rgba(80, 255, 170, 0.35);
+		background: rgba(80, 255, 170, 0.12);
+	}
+
+	.label.bad {
+		border-color: rgba(255, 170, 120, 0.35);
+		background: rgba(255, 170, 120, 0.12);
+	}
+
+	.label.neutral {
+		border-color: rgba(255, 255, 255, 0.16);
+		background: rgba(255, 255, 255, 0.06);
+	}
+
+	.tip {
+		margin-top: 12px;
+		padding: 10px 12px;
+		border-radius: 12px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(255, 255, 255, 0.05);
+		color: rgba(234, 240, 255, 0.78);
+		font-size: 13px;
 	}
 
 	.footer {
 		margin-top: 14px;
 	}
 </style>
+
+
 
