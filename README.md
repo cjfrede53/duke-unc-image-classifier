@@ -111,8 +111,8 @@ The model (~2 MB) is committed to the repository so the app runs out of the box 
 
 ## Deployment
 
-
 The site is live at **https://cjfrede53.github.io/duke-unc-image-classifier/** and deploys automatically to GitHub Pages via GitHub Actions (`.github/workflows/deploy.yml`). Every push to `main` triggers a build with `@sveltejs/adapter-static` and publishes the result.
+
 ---
 
 ## What I Learned
