@@ -70,6 +70,8 @@ Instead of simply displaying a prediction, the application visualizes the result
 
 ## Running Locally
 
+No installation needed to try it — the app is deployed at [cjfrede53.github.io/duke-unc-image-classifier](https://cjfrede53.github.io/duke-unc-image-classifier/). To run it yourself:
+
 Install dependencies:
 
 ```bash
