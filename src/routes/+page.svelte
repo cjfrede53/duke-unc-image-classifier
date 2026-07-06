@@ -105,6 +105,38 @@
 </script>
 
 <svelte:head>
+	<title>Duke vs. UNC Image Classifier — Rivalry Bloom</title>
+	<meta
+		name="description"
+		content="Browser-based ML that classifies Duke vs. UNC imagery with a custom TensorFlow.js model — all inference runs locally, and an animated flower blooms or decays with the verdict."
+	/>
+
+	<!-- Social preview (Open Graph + Twitter). URLs must be absolute. -->
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Rivalry Bloom" />
+	<meta property="og:title" content="Duke vs. UNC Image Classifier — Rivalry Bloom" />
+	<meta
+		property="og:description"
+		content="Browser-based ML with TensorFlow.js. Upload an image; a flower blooms for Duke, decays for UNC. No server — everything runs locally."
+	/>
+	<meta property="og:url" content="https://cjfrede53.github.io/duke-unc-image-classifier/" />
+	<meta
+		property="og:image"
+		content="https://cjfrede53.github.io/duke-unc-image-classifier/og-image.png"
+	/>
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Duke vs. UNC Image Classifier — Rivalry Bloom" />
+	<meta
+		name="twitter:description"
+		content="Browser-based ML with TensorFlow.js. Upload an image; a flower blooms for Duke, decays for UNC."
+	/>
+	<meta
+		name="twitter:image"
+		content="https://cjfrede53.github.io/duke-unc-image-classifier/og-image.png"
+	/>
+
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 	<link href="https://fonts.googleapis.com/css2?family=Graduate&display=swap" rel="stylesheet" />
